@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -44,20 +45,25 @@ func main() {
 	fmt.Print("> ")
 	fmt.Scanln(&entry)
 
-	if VerrifIp(entry) {
-		fmt.Println("Cette ip est bien localisée dans un pays faisant partie l'union Européenne")
+	isFromEU, err := VerrifIp(entry)
+
+	if err == nil {
+		if isFromEU {
+			fmt.Println("Cette ip est bien localisée dans un pays faisant partie l'union Européenne")
+		} else {
+			fmt.Println("Cette ip est localisé dans un pays ne faisant pas partie de l'union Européenne")
+		}
 	} else {
-		fmt.Println("Cette ip est localisé dans un pays ne faisant pas partie de l'union Européenne")
+		fmt.Println("Adresse IP invalide")
 	}
 }
 
-func VerrifIp(ip string) bool {
+func VerrifIp(ip string) (bool, error) {
 	if !isACorrectIpAddress(ip) {
-		fmt.Println("Veuillez entrer une addresse ip correcte")
-		return false
+		return false, errors.New("veuillez entrer une adresse ip valide")
 	} else {
 		country := getCountry(ip)
-		return isPartOfEU(country)
+		return isPartOfEU(country), nil
 	}
 }
 
@@ -73,7 +79,6 @@ func stringToInt(a string) int {
 func isACorrectIpAddress(ip string) bool {
 	part := strings.Split(ip, ".")
 	if len(part) != 4 {
-		fmt.Println("Adresse IP invalide")
 		return false
 	}
 	a := stringToInt(part[0])
