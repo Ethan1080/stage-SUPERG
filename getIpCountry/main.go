@@ -114,7 +114,10 @@ func setIpData(ip string, isEU bool) error {
 	ips := make(map[string]string)
 
 	if err == nil {
-		err = yaml.Unmarshal(data, &ips)
+		err_ := yaml.Unmarshal(data, &ips)
+		if err_ != nil {
+			return err
+		}
 	} else {
 		return err
 	}
