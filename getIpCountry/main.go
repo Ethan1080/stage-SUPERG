@@ -4,11 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 
 	"github.com/openrdap/rdap"
 )
@@ -43,26 +40,36 @@ var euCountries = map[string]bool{
 	"SE": true,
 }
 
+var ipList []string
+var indexIpList int
+
 func main() {
+	indexIpList = 0
+	ipList = make([]string, 3)
 	var entry string
-	fmt.Println("Entrez une adresse IP sous forme x.x.x.x")
-	fmt.Print("> ")
-	fmt.Scanln(&entry)
 
-	// entry := "78.244.206.253"
+	fmt.Println("Entrez une adresse IP sous forme x.x.x.x ou 'stop' pour arreter le programme")
 
-	isFromEU, err := VerrifIp(entry)
-
-	if err == nil {
-		if isFromEU {
-			fmt.Println("Cette ip est bien localisée dans un pays faisant partie l'union Européenne")
-			setIpData(entry, true)
-		} else {
-			fmt.Println("Cette ip est localisé dans un pays ne faisant pas partie de l'union Européenne")
-			setIpData(entry, false)
+	for {
+		fmt.Print("> ")
+		fmt.Scanln(&entry)
+		if entry == "stop" {
+			break
 		}
-	} else {
-		fmt.Println("Adresse IP invalide")
+
+		isFromEU, err := VerrifIp(entry)
+
+		if err == nil {
+			if isFromEU {
+				fmt.Println("Cette ip est bien localisée dans un pays faisant partie l'union Européenne")
+				setIpData(entry, true)
+			} else {
+				fmt.Println("Cette ip est localisé dans un pays ne faisant pas partie de l'union Européenne")
+				setIpData(entry, false)
+			}
+		} else {
+			fmt.Println("Adresse IP invalide")
+		}
 	}
 }
 
@@ -88,54 +95,29 @@ func VerrifIp(ip string) (bool, error) {
 	}
 }
 
-func getIpData(ip string) (string, bool, error) {
-	data, err := os.ReadFile("ipList.yml")
-	if err != nil {
-		return "", false, err
-	}
+func getIpData(targetIp string) (string, bool, error) {
+	var ip string
+	var value []string
+	for i := 0; i < len(ipList); i++ {
+		value = strings.Split(ipList[i], ":")
+		ip = value[0]
+		if ip == targetIp {
+			return value[1], true, nil
+		}
 
-	ips := make(map[string]string)
-	err = yaml.Unmarshal(data, &ips)
-	if err != nil {
-		return "", false, err
 	}
-
-	value, exists := ips[ip]
-	if !exists {
-		return "", false, err
-	} else {
-		return value, true, err
-	}
-
+	return "", false, nil
 }
 
-func setIpData(ip string, isEU bool) error {
-	data, err := os.ReadFile("ipList.yml")
-	ips := make(map[string]string)
+func setIpData(ip string, isEU bool) {
+	value := fmt.Sprintf("%s:%t", ip, isEU)
 
-	if err == nil {
-		err_ := yaml.Unmarshal(data, &ips)
-		if err_ != nil {
-			return err
-		}
-	} else {
-		return err
+	ipList[indexIpList] = value
+	indexIpList++
+
+	if indexIpList >= len(ipList) {
+		indexIpList = 0
 	}
-
-	if isEU {
-		ips[ip] = "true"
-	} else {
-		ips[ip] = "false"
-	}
-
-	data, err = yaml.Marshal(ips)
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile("ipList.yml", data, 0644)
-
-	return err
 }
 
 func stringToInt(a string) int {
@@ -182,6 +164,7 @@ func (t *TransportDumper) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	// respDump, err := httputil.DumpResponse(resp, true)
 	// fmt.Println(string(respDump))
+	// fmt.Println(time.Since(start))
 
 	return resp, err
 }
