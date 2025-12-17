@@ -45,7 +45,7 @@ var indexIpList int
 
 func main() {
 	indexIpList = 0
-	ipList = make([]string, 3)
+	ipList = make([]string, 1000)
 	var entry string
 
 	fmt.Println("Entrez une adresse IP sous forme x.x.x.x ou 'stop' pour arreter le programme")
