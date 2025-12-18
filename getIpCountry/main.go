@@ -3,7 +3,6 @@ package main // V3.0.0
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 
@@ -40,12 +39,9 @@ var euCountries = map[string]bool{
 	"SE": true,
 }
 
-var ipList []string
-var indexIpList int
+var ipList = make(map[string]bool)
 
 func main() {
-	indexIpList = 0
-	ipList = make([]string, 1000)
 	var entry string
 
 	fmt.Println("Entrez une adresse IP sous forme x.x.x.x ou 'stop' pour arreter le programme")
@@ -77,46 +73,37 @@ func VerrifIp(ip string) (bool, error) {
 	if !isACorrectIpAddress(ip) {
 		return false, errors.New("veuillez entrer une adresse ip valide")
 	} else {
-		value, exists, err := getIpData(ip)
-		if err == nil {
-			if exists {
-				if value == "true" {
-					return true, nil
-				}
-				if value == "false" {
-					return false, nil
-				}
-			} else {
-				country := getCountry(ip)
-				return isPartOfEU(country), nil
-			}
+		value, exists := getIpData(ip)
+		if exists {
+			return value, nil
+		} else {
+			country := getCountry(ip)
+			return isPartOfEU(country), nil
 		}
-		return false, err
 	}
 }
 
-func getIpData(targetIp string) (string, bool, error) {
-	var ip string
-	var value []string
-	for i := 0; i < len(ipList); i++ {
-		value = strings.Split(ipList[i], ":")
-		ip = value[0]
-		if ip == targetIp {
-			return value[1], true, nil
-		}
-
+func getIpData(targetIp string) (bool, bool) {
+	value, exists := ipList[targetIp]
+	if exists {
+		return value, true
+	} else {
+		return false, false
 	}
-	return "", false, nil
 }
 
 func setIpData(ip string, isEU bool) {
-	value := fmt.Sprintf("%s:%t", ip, isEU)
-
-	ipList[indexIpList] = value
-	indexIpList++
-
-	if indexIpList >= len(ipList) {
-		indexIpList = 0
+	if len(ipList) < 1000 {
+		ipList[ip] = isEU
+	} else {
+		count := 0
+		for ip := range ipList {
+			delete(ipList, ip)
+			count++
+			if count >= 20 {
+				break
+			}
+		}
 	}
 }
 
@@ -151,34 +138,9 @@ func isACorrectIpAddress(ip string) bool {
 	return false
 }
 
-type TransportDumper struct{}
-
-func (t *TransportDumper) RoundTrip(req *http.Request) (*http.Response, error) {
-	// reqDump, _ := httputil.DumpRequestOut(req, true)
-	// fmt.Println(string(reqDump))
-
-	resp, err := http.DefaultTransport.RoundTrip(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// respDump, err := httputil.DumpResponse(resp, true)
-	// fmt.Println(string(respDump))
-	// fmt.Println(time.Since(start))
-
-	return resp, err
-}
-
 func getCountry(ip string) string {
-	var transportDumper TransportDumper
 
-	var clienthttps = http.Client{
-		Transport: &transportDumper,
-	}
-
-	client := &rdap.Client{
-		HTTP: &clienthttps,
-	}
+	client := &rdap.Client{}
 	client_, err := client.QueryIP(ip)
 
 	if err == nil {
