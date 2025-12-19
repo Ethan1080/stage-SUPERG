@@ -1,0 +1,82 @@
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"net"
+	"strings"
+)
+
+func main() {
+	ln, err := net.Listen("tcp", ":2525")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("SMTP debug server listening on port 2525")
+
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			continue
+		}
+		go handle(conn)
+	}
+}
+
+func handle(conn net.Conn) {
+	defer conn.Close()
+
+	reader := bufio.NewReader(conn)
+	writer := bufio.NewWriter(conn)
+
+	write(writer, "220 debug-smtp.local Ready")
+
+	inData := false
+
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("Client disconnected")
+			return
+		}
+
+		line = strings.TrimRight(line, "\r\n")
+		fmt.Println(">>", line)
+
+		if inData {
+			if line == "." {
+				inData = false
+				write(writer, "250 Message received")
+			}
+			continue
+		}
+
+		switch {
+		case strings.HasPrefix(line, "HELO"),
+			strings.HasPrefix(line, "EHLO"):
+			write(writer, "250 Hello")
+
+		case strings.HasPrefix(line, "MAIL FROM"):
+			write(writer, "250 OK")
+
+		case strings.HasPrefix(line, "RCPT TO"):
+			write(writer, "250 OK")
+
+		case line == "DATA":
+			inData = true
+			write(writer, "354 End data with <CRLF>.<CRLF>")
+
+		case line == "QUIT":
+			write(writer, "221 Bye")
+			return
+
+		default:
+			write(writer, "250 OK")
+		}
+	}
+}
+
+func write(w *bufio.Writer, msg string) {
+	w.WriteString(msg + "\r\n")
+	w.Flush()
+}
